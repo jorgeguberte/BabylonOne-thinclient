@@ -1,67 +1,57 @@
 "use strict";
 
-/* Thin Client */
-class ThinClient{
-  constructor(){
-    console.log("ThinClient initialized");
-    this.things = [];
-  }
+var ThinClient = require('./lib/ThinClient').ThinClient;
+var Thing = require('./lib/Thing').Thing;
 
-  addThing(thing){
-    this.things.push(thing);
-  }
-}
-
-
-/* Thing */
-class Thing{
-  constructor(name, description, location){
-    this.name = name;
-    this.description = description;
-    this.location = location;
-    this.dataSources = {};
-  }
-
-  addDataSource(dataSource){
-    this.dataSources[dataSource.id] = dataSource;
-  }
-
-  updateDataSource(dataSource){
-    this.dataSources[dataSource.id] = dataSource.value;
-  }
-}
-
-
-
+var thinClient = new ThinClient();
+var websocketConnection = thinClient.connectWebSocket();
 
 var five = require('johnny-five'),
     arduino = new five.Board();
 
-  var thinClient = new ThinClient();
+
+    function getTimestamp(){
+      var date = new Date();
+
+      var year = date.getFullYear();
+      var month = str_pad(date.getMonth());
+      var day = str_pad(date.getDate());
+
+      var hour = str_pad(date.getHours());
+      var minute = str_pad(date.getMinutes());
+      var second = str_pad(date.getSeconds());
+
+      var timestamp = year+'-'+month+'-'+day+' '+hour+':'+minute+':'+second;
+
+
+
+
+
+      function str_pad(n) {
+          return String("00" + n).slice(-2);
+      }
+
+    return timestamp;
+    }
+
+
+
 
 arduino.on('ready', function(){
   var thing = new Thing({name:'Vaso', description: 'Um vaso de manjericão', location: 'São Paulo - SP - Brasil'});
+  thinClient.addThing(thing);
 
   /*Setup data sources*/
 
-  var humiditySensor = new five.Sensor({pin: 'A2', freq: 500});
-  var humidity_dataSource = {id: 'humidity', value:0, name: 'Humidity', description: 'Humidity in the soil where the plant lives. Ideal number is ~75%'}
-  thing.addDataSource(humidity_dataSource);
 
-  humiditySensor.on('change', function(){
-    var humidity = this.scaleTo(100, -1); //#TODO: find out if -1 is the best lower threshold
-    thing.updateDataSource({'property':'humidity', 'value':humidity});
-  });
-
-
-
-
-  var luminositySensor = new five.Sensor({pin:'A0', freq: 500});
-  var luminosity_dataSource = {id: 'luminosity', value: 0, name: 'Luminosity', description: 'Luminosity level in the area around the plant'};
+  var luminositySensor = new five.Sensor({pin:'A0', freq: 2000});
+  var luminosity_dataSource = {id: 'luminosity', name: 'Luminosity', description: 'Luminosity level in the area around the plant', telemetry: []};
   thing.addDataSource(luminosity_dataSource);
 
   luminositySensor.on('change', function(){
-    var luminosity = this.scaleTo(0,100);
-    thing.updateDataSource({'property':'luminosity', 'value':luminosity });
+    var telemetry_value = this.scaleTo(-1,100);
+    var timestamp = getTimestamp();
+    thing.addTelemetryEvent({'property': 'luminosity', 'value': telemetry_value,'timestamp': timestamp });
+    thing.relayTelemetry();
   });
 });
